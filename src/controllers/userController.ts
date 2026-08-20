@@ -131,10 +131,18 @@ const patch_BookingsForMySessions = async (req: Request, res: Response) => {
   }
 }
 const put_BookingsForMySessions = async (req: Request, res: Response) => {
+
+
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).json({ msg: "Unauthorized" });
+  }
+
   try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { email: string, role: string }
     const {
       title,
-      trainer,
       timeSlot,
       capacity } = req.body;
 
@@ -145,7 +153,7 @@ const put_BookingsForMySessions = async (req: Request, res: Response) => {
     const theSession = await ClassSession.create({
       id: String(totalSessions + 1),
       title,
-      trainer,
+      trainer:decoded.email,
       timeSlot,
       capacity
     });
