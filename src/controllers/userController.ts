@@ -110,9 +110,18 @@ const get_BookingsForMySessions = async (req: Request, res: Response) => {
   }
 }
 const patch_BookingsForMySessions = async (req: Request, res: Response) => {
+
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).json({ msg: "Unauthorized" });
+  }
+
+  
   try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { email: string, role: string }
     const ID = req.params.sessionID as string;
-    const { title, trainer, timeSlot, capacity } = req.body;
+    const { title, timeSlot, capacity } = req.body;
 
     const session = await ClassSession.findOne({ id: ID });
     if (!session) {
@@ -123,7 +132,7 @@ const patch_BookingsForMySessions = async (req: Request, res: Response) => {
     }
     const result = await ClassSession.updateOne(
       { id: ID },
-      { $set: { title, trainer, timeSlot, capacity } }
+      { $set: { title, trainer:decoded.email, timeSlot, capacity } }
     );
     return res.json(result);
   } catch {
@@ -153,7 +162,7 @@ const put_BookingsForMySessions = async (req: Request, res: Response) => {
     const theSession = await ClassSession.create({
       id: String(totalSessions + 1),
       title,
-      trainer:decoded.email,
+      trainer: decoded.email,
       timeSlot,
       capacity
     });
@@ -191,10 +200,19 @@ const view_all_available_sessions = async (req: Request, res: Response) => {
   }
 }
 const createBooking = async (req: Request, res: Response) => {
+
+
+ const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).json({ msg: "Unauthorized" });
+  }
+
+  
   try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { email: string, role: string }
     const {
-      session_reference,
-      member } = req.body;
+      session_reference } = req.body;
 
     const session = await ClassSession.findOne({ id: session_reference });
     if (!session) {
@@ -202,9 +220,9 @@ const createBooking = async (req: Request, res: Response) => {
     } else if (session.capacity == 0) {
       return res.status(404).json({ msg: "Session is full" });
     }
-    const book = await Booking.findOne({ session_reference, member });
+    const book = await Booking.findOne({ session_reference, member:decoded.email });
 
-    if (book) {
+    if (book && book.status != 'Cancelled') {
       return res.status(404).json({ msg: "User already registered for this session" });
 
     }
@@ -221,7 +239,7 @@ const createBooking = async (req: Request, res: Response) => {
     const theSession = await Booking.create({
       id: String(totalBookings + 1),
       session_reference,
-      member
+      member:decoded.email
     });
 
     res.status(201).json(theSession);
